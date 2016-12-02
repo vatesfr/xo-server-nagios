@@ -95,18 +95,18 @@ class XoServerNagios {
     })
   }
 
-  _nscaPaquetBuilder (SIZE, VERSION, timestamp, iv, status, message, encoding) {
+  _nscaPaquetBuilder (size, version, timestamp, iv, status, message, encoding) {
     // Building nsca paquet
-    const paquet = new Buffer(SIZE)
+    const paquet = new Buffer(size)
     paquet.fill(0)
-    paquet.writeInt16BE(VERSION, 0)
+    paquet.writeInt16BE(version, 0)
     paquet.fill('h', 2, 3)
     paquet.writeUInt32BE(0, 4) // initial 0 for CRC32 value
     paquet.writeUInt32BE(timestamp, 8)
     paquet.writeInt16BE(status, 12)
     paquet.write(this._conf.host, 14, 77, encoding)
     paquet.write(this._conf.service, 78, 206, encoding)
-    paquet.write(message, 206, SIZE, encoding)
+    paquet.write(message, 206, size, encoding)
     paquet.writeUInt32BE(crc32.unsigned(paquet), 4)
     return paquet
   }
