@@ -46,8 +46,10 @@ export const testSchema = {
 }
 
 // ===================================================================
-
+const SIZE = 720
+const VERSION = 3
 class XoServerNagios {
+
   constructor ({ xo }) {
     this._sendPassiveCheck = ::this._sendPassiveCheck
     this._set = ::xo.defineProperty
@@ -79,13 +81,11 @@ class XoServerNagios {
       console.log('Successful connection')
     })
     client.on('data', data => {
-      const size = 720
-      const version = 3
       const encoding = 'binary'
       const dataBuffer = new Buffer(data)
       const iv = dataBuffer.toString(encoding, 0, 128) // initialization vector
       const timestamp = dataBuffer.readInt32BE(128)
-      const paquet = this._nscaPaquetBuilder(size, version, timestamp, iv, status, message, encoding)
+      const paquet = this._nscaPaquetBuilder(SIZE, VERSION, timestamp, iv, status, message, encoding)
       // 1) Using xor between the NSCA paquet and the initialization vector
       // 2) Using xor between the result of the first operation and the encryption key
       const xorPaquetBuffer = new Buffer(this._xor(this._xor(this._stringToAsciiArray(paquet.toString(encoding)), this._stringToAsciiArray(iv)), this._stringToAsciiArray(this._conf.key)), encoding)
@@ -95,18 +95,18 @@ class XoServerNagios {
     })
   }
 
-  _nscaPaquetBuilder (size, version, timestamp, iv, status, message, encoding) {
+  _nscaPaquetBuilder (SIZE, VERSION, timestamp, iv, status, message, encoding) {
     // Building nsca paquet
-    const paquet = new Buffer(size)
+    const paquet = new Buffer(SIZE)
     paquet.fill(0)
-    paquet.writeInt16BE(version, 0)
+    paquet.writeInt16BE(VERSION, 0)
     paquet.fill('h', 2, 3)
     paquet.writeUInt32BE(0, 4) // initial 0 for CRC32 value
     paquet.writeUInt32BE(timestamp, 8)
     paquet.writeInt16BE(status, 12)
     paquet.write(this._conf.host, 14, 77, encoding)
     paquet.write(this._conf.service, 78, 206, encoding)
-    paquet.write(message, 206, size, encoding)
+    paquet.write(message, 206, SIZE, encoding)
     paquet.writeUInt32BE(crc32.unsigned(paquet), 4)
     return paquet
   }
