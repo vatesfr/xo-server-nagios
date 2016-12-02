@@ -13,7 +13,7 @@ Installation of the [npm package](https://npmjs.org/package/xo-server-nagios):
 ## Usage
 
 Like all other xo-server plugins, it can be configured directly via
-the web iterface, see [the plugin documentation](https://xen-orchestra.com/docs/plugins.html). You can also test the configuration plugin if it works.
+the web interface, see [the plugin documentation](https://xen-orchestra.com/docs/plugins.html). You can also test if the configuration plugin works.
 
 ## Development
 

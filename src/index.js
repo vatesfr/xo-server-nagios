@@ -69,8 +69,8 @@ class XoServerNagios {
     this._unset()
   }
 
-  test (data) {
-    return this._sendPassiveCheck(data.status, 'The server-nagios plugin for Xen Orchestra server seems to be working fine, nicely done :)')
+  test ({status}) {
+    return this._sendPassiveCheck(status, 'The server-nagios plugin for Xen Orchestra server seems to be working fine, nicely done :)')
   }
 
   _sendPassiveCheck (status, message) {
@@ -78,12 +78,14 @@ class XoServerNagios {
     client.connect(this._conf.port, this._conf.server, () => {
       console.log('Successful connection')
     })
-    client.on('data', (data) => {
+    client.on('data', data => {
+      const size = 720
+      const version = 3
       const encoding = 'binary'
       const dataBuffer = new Buffer(data)
       const iv = dataBuffer.toString(encoding, 0, 128) // initialization vector
       const timestamp = dataBuffer.readInt32BE(128)
-      const paquet = this._nscaPaquetBuilder(timestamp, iv, status, message, encoding)
+      const paquet = this._nscaPaquetBuilder(size, version, timestamp, iv, status, message, encoding)
       // 1) Using xor between the NSCA paquet and the initialization vector
       // 2) Using xor between the result of the first operation and the encryption key
       const xorPaquetBuffer = new Buffer(this._xor(this._xor(this._stringToAsciiArray(paquet.toString(encoding)), this._stringToAsciiArray(iv)), this._stringToAsciiArray(this._conf.key)), encoding)
@@ -93,9 +95,7 @@ class XoServerNagios {
     })
   }
 
-  _nscaPaquetBuilder (timestamp, iv, status, message, encoding) {
-    const size = 720
-    const version = 3
+  _nscaPaquetBuilder (size, version, timestamp, iv, status, message, encoding) {
     // Building nsca paquet
     const paquet = new Buffer(size)
     paquet.fill(0)
@@ -113,14 +113,14 @@ class XoServerNagios {
 
   _stringToAsciiArray (str) {
     const map = Array.prototype.map
-    const chars = map.call(str, (x) => {
+    const chars = map.call(str, x => {
       return x.charCodeAt(0)
     })
     return chars
   }
 
   _xor (long, short) {
-    let result = []
+    const result = []
     let j = 0
     for (let i = 0; i < long.length; i++) {
       if (j === short.length) {
