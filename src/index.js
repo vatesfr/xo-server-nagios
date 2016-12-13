@@ -119,8 +119,8 @@ class XoServerNagios {
     message,
     status
   }) {
-    if (/\r|\n/.exec(message)) {
-      throw new Error('The message must not contain a line break.')
+    if (/\r|\n/.test(message)) {
+      throw new Error('the message must not contain a line break')
     }
 
     const client = new net.Socket()
