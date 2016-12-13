@@ -35,9 +35,19 @@ export const configurationSchema = {
 
 // ===================================================================
 
-function nscaPacketBuilder (host, service, size, version, timestamp, iv, status, message, encoding) {
+function nscaPacketBuilder ({
+  encoding,
+  host,
+  iv,
+  message,
+  service,
+  status,
+  timestamp,
+  version
+}) {
   // Building NSCA packet
-  let packet = new Buffer(size)
+  const SIZE = 720
+  const packet = new Buffer(SIZE)
   packet.fill(0)
   packet.writeInt16BE(version, 0)
   packet.fill('h', 2, 3)
@@ -46,20 +56,21 @@ function nscaPacketBuilder (host, service, size, version, timestamp, iv, status,
   packet.writeInt16BE(status, 12)
   packet.write(host, 14, 77, encoding)
   packet.write(service, 78, 206, encoding)
-  packet.write(message, 206, size, encoding)
+  packet.write(message, 206, SIZE, encoding)
   packet.writeUInt32BE(crc32.unsigned(packet), 4)
-  packet = Buffer.from(packet.toString(encoding), 'ascii')
   return packet
 }
 
-function xor (long, short) {
-  const result = []
+function xor (data, mask) {
+  const result = new Buffer(data.length)
+  const dataSize = data.length
+  const maskSize = mask.length
   let j = 0
-  for (let i = 0; i < long.length; i++) {
-    if (j === short.length) {
+  for (let i = 0; i < dataSize; i++) {
+    if (j === maskSize) {
       j = 0
     }
-    result[i] = long[i] ^ short[j]
+    result[i] = data[i] ^ mask[j]
     j++
   }
   return result
@@ -67,8 +78,12 @@ function xor (long, short) {
 
 // ===================================================================
 
-const SIZE = 720
+export const OK = 0
+export const WARNING = 1
+export const CRITICAL = 2
+
 const VERSION = 3
+const ENCODING = 'binary'
 
 class XoServerNagios {
 
@@ -79,10 +94,12 @@ class XoServerNagios {
 
    // Defined in configure().
     this._conf = null
+    this._key = null
   }
 
   configure (configuration) {
     this._conf = configuration
+    this._key = new Buffer(configuration.key, ENCODING)
   }
 
   load () {
@@ -95,14 +112,14 @@ class XoServerNagios {
 
   test () {
     return this._sendPassiveCheck({
-      status: 0,
-      message: 'The server-nagios plugin for Xen Orchestra server seems to be working fine, nicely done :)'
+      message: 'The server-nagios plugin for Xen Orchestra server seems to be working fine, nicely done :)',
+      status: OK
     })
   }
 
   _sendPassiveCheck ({
-    status,
-    message
+    message,
+    status
   }) {
     const client = new net.Socket()
 
@@ -112,11 +129,17 @@ class XoServerNagios {
       })
 
       client.on('data', data => {
-        const encoding = 'binary'
         const timestamp = data.readInt32BE(128)
-        const packet = nscaPacketBuilder(this._conf.host, this._conf.service, SIZE, VERSION, timestamp, iv, status, message.toString().replace(/\s/g, ' '), encoding)
-        const iv = Buffer.from(data.toString(encoding, 0, 128), 'ascii') // initialization vector
-        const key = Buffer.from(this._conf.key, 'ascii')
+        const iv = new Buffer(data.slice(0, 128), ENCODING) // initialization vector
+        const packet = nscaPacketBuilder({
+          ...this._conf,
+          encoding: ENCODING,
+          iv,
+          message: message.toString().replace(/\s/g, ' '),
+          status,
+          timestamp,
+          version: VERSION
+        })
 
         // 1) Using xor between the NSCA packet and the initialization vector
         // 2) Using xor between the result of the first operation and the encryption key
@@ -126,19 +149,17 @@ class XoServerNagios {
               packet,
               iv
             ),
-            key
+            this._key
           ),
-          encoding
+          ENCODING
         )
-        client.write(xorPacketBuffer, (a) => {
+        client.write(xorPacketBuffer, res => {
           client.destroy()
-          resolve(a)
+          resolve(res)
         })
       })
 
-      client.on('error', (err) => {
-        reject(err)
-      })
+      client.on('error', reject)
     })
   }
 }

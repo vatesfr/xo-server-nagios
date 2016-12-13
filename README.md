@@ -17,9 +17,10 @@ the web interface, see [the plugin documentation](https://xen-orchestra.com/docs
 
 ## Development
 
-### `Xo#sendPassiveCheck(status, message) `
+### `Xo#sendPassiveCheck( { status, message }) `
 
-This xo method is called to send a passive check to nagios and change the status of a service. It has two parameters:
+This xo method is called to send a passive check to nagios and change the status of a service. 
+It has two parameters:
 - status: it's the service status in Nagios (0: OK | 1: WARNING | 2: CRITICAL).
 - message: it's the status information in Nagios.
 
