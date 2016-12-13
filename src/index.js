@@ -36,35 +36,33 @@ export const configurationSchema = {
 // ===================================================================
 
 function nscaPacketBuilder ({
-  encoding,
   host,
   iv,
   message,
   service,
   status,
-  timestamp,
-  version
+  timestamp
 }) {
   // Building NSCA packet
   const SIZE = 720
   const packet = new Buffer(SIZE)
   packet.fill(0)
-  packet.writeInt16BE(version, 0)
+  packet.writeInt16BE(VERSION, 0)
   packet.fill('h', 2, 3)
   packet.writeUInt32BE(0, 4) // initial 0 for CRC32 value
   packet.writeUInt32BE(timestamp, 8)
   packet.writeInt16BE(status, 12)
-  packet.write(host, 14, 77, encoding)
-  packet.write(service, 78, 206, encoding)
-  packet.write(message, 206, SIZE, encoding)
+  packet.write(host, 14, 77, ENCODING)
+  packet.write(service, 78, 206, ENCODING)
+  packet.write(message, 206, SIZE, ENCODING)
   packet.writeUInt32BE(crc32.unsigned(packet), 4)
   return packet
 }
 
 function xor (data, mask) {
-  const result = new Buffer(data.length)
   const dataSize = data.length
   const maskSize = mask.length
+  const result = new Buffer(dataSize)
   let j = 0
   for (let i = 0; i < dataSize; i++) {
     if (j === maskSize) {
@@ -121,6 +119,10 @@ class XoServerNagios {
     message,
     status
   }) {
+    if (/\r|\n/.exec(message)) {
+      throw new Error('The message must not contain a line break.')
+    }
+
     const client = new net.Socket()
 
     return new Promise((resolve, reject) => {
@@ -130,29 +132,25 @@ class XoServerNagios {
 
       client.on('data', data => {
         const timestamp = data.readInt32BE(128)
-        const iv = new Buffer(data.slice(0, 128), ENCODING) // initialization vector
+        const iv = data.slice(0, 128) // initialization vector
         const packet = nscaPacketBuilder({
           ...this._conf,
-          encoding: ENCODING,
           iv,
-          message: message.toString().replace(/\s/g, ' '),
+          message,
           status,
-          timestamp,
-          version: VERSION
+          timestamp
         })
 
         // 1) Using xor between the NSCA packet and the initialization vector
         // 2) Using xor between the result of the first operation and the encryption key
-        const xorPacketBuffer = new Buffer(
+        const xorPacketBuffer = xor(
           xor(
-            xor(
-              packet,
-              iv
-            ),
-            this._key
+            packet,
+            iv
           ),
-          ENCODING
+          this._key
         )
+
         client.write(xorPacketBuffer, res => {
           client.destroy()
           resolve(res)
