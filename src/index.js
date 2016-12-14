@@ -119,13 +119,13 @@ class XoServerNagios {
     message,
     status
   }) {
-    if (/\r|\n/.test(message)) {
-      throw new Error('the message must not contain a line break')
-    }
-
-    const client = new net.Socket()
-
     return new Promise((resolve, reject) => {
+      if (/\r|\n/.test(message)) {
+        throw new Error('the message must not contain a line break')
+      }
+
+      const client = new net.Socket()
+
       client.connect(this._conf.port, this._conf.server, () => {
         console.log('Successful connection')
       })
